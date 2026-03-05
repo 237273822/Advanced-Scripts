@@ -1,4 +1,4 @@
-/*
+/* ==========================================================================================================
 Este script cria um package PL/SQL para automatizar concessões de privilégios (GRANTs) em objetos de um ou mais schemas para uma role.
 O objetivo é evitar executar GRANT manualmente em centenas de objetos, automatizando a concessão de privilégios em:
   Tabelas → SELECT, INSERT, UPDATE, DELETE
