@@ -1,17 +1,37 @@
 /* ==========================================================================================================
- Script: grant_dml_automatizado.sql
-   Autor: [Francois Fiorino]
-   Data: [05/03/2026]
-
+Script: grant_dml_automatizado.sql
+Autor: Francois Fiorino
+Data: 05/03/2026
 Descrição:
-Este script cria um package PL/SQL para automatizar concessões de privilégios (GRANTs) em objetos de um ou mais schemas para uma role.
-O objetivo é evitar executar GRANT manualmente em centenas de objetos, automatizando a concessão de privilégios em:
-  Tabelas → SELECT, INSERT, UPDATE, DELETE
-  Procedures → EXECUTE
+  Este script cria um package PL/SQL responsável por automatizar concessões de privilégios (GRANTs) em objetos
+  de um ou mais schemas para uma role específica.
+  O objetivo é eliminar a necessidade de executar GRANTs manualmente em ambientes com grande quantidade
+  de objetos, garantindo padronização e redução de erros operacionais.
 
-O script também possui modo de simulação (dry-run) e registro em log, permitindo validar os comandos antes da execução real.
-Permite apenas simular, validar e/ou executar os grants diretamente. 
+Funcionalidades:
+ - Concede automaticamente privilégios DML em tabelas:
+   SELECT, INSERT, UPDATE e DELETE
+ - Concede privilégios EXECUTE em objetos PL/SQL:
+   PROCEDURE, FUNCTION e PACKAGE
+ - Suporte a execução em múltiplos schemas
+ - Modo de simulação (dry-run) para validação prévia dos comandos
+ - Registro detalhado das operações em tabela de log
+ - Continuidade de execução mesmo em caso de erro em objetos específicos
 
+Instruções de uso:
+1. Executar o script para criar:
+   - tabela de log SEC_GRANT_LOG
+   - package SEC_GRANT_MGR
+2. Executar em modo DRY-RUN para validar os comandos que serão gerados:
+   p_dry_run => TRUE
+
+3. Consultar a tabela SEC_GRANT_LOG para revisar os GRANTs gerados.
+4. Após validação, executar novamente com:
+   p_dry_run => FALSE
+   para aplicar efetivamente os privilégios.
+
+Compatibilidade:
+ Oracle Database 12c ou superior.
 ========================================================================================================== */
 
 --1️⃣ Package Specification
