@@ -6,7 +6,8 @@ O objetivo é evitar executar GRANT manualmente em centenas de objetos, automati
 
 O script também possui modo de simulação (dry-run) e registro em log, permitindo validar os comandos antes da execução real.
 Permite apenas simular, validar e/ou executar os grants diretamente. 
-*/
+
+========================================================================================================== */
 
 --1️⃣ Package Specification
 --Define a procedure principal responsável por gerar e aplicar os GRANTs.
