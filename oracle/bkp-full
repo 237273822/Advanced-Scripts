@@ -1,0 +1,157 @@
+#!/bin/bash
+
+# =========================================================
+# Rotina de Backup Full RMAN
+# =========================================================
+# Objetivo:
+#   Executar backup full (incremental level 0) do banco Oracle,
+#   incluindo:
+#     - database
+#     - archive logs
+#     - control file
+#     - spfile
+#
+# Funcionalidades adicionais:
+#   - limpeza de backups/logs antigos
+#   - crosscheck de backups no catálogo do RMAN
+#   - remoção de backups obsoletos/expirados
+#   - envio de e-mail com status final da rotina
+#
+
+# =========================================================
+# Variáveis de ambiente Oracle
+# =========================================================
+export ORACLE_SID=PRODDB
+export ORACLE_BASE=/u01/app/oracle
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
+export PATH=$PATH:$HOME/.local/bin:$HOME/bin:$ORACLE_BASE:$ORACLE_HOME:$ORACLE_HOME/bin
+export DATE=$(date +%d-%m-%y_%H%M%S)
+
+
+# =========================================================
+# Limpeza de arquivos antigos
+# =========================================================
+# Remove arquivos do diretório de backup full com mais de 7 dias
+find /backup/rman/full/ -type f -mtime +7 -exec rm -rf {} \;
+
+# Remove logs da rotina full com mais de 7 dias
+find /backup/logs/ -iname "PRODDB_Full_*" -type f -mtime +7 -exec rm -rf {} \;
+
+
+# =========================================================
+# Execução do RMAN
+# =========================================================
+# O log da execução será gravado com timestamp para rastreabilidade
+rman target / log=/backup/logs/PRODDB_Full_${DATE}.log << EOF
+
+set echo on;
+
+run {
+    allocate channel ch01 device type disk;
+    allocate channel ch02 device type disk;
+
+    crosscheck backup;
+    crosscheck copy;
+    crosscheck archivelog all;
+
+    delete noprompt obsolete device type disk;
+    delete force noprompt expired backup;
+
+    sql 'alter system archive log current';
+
+    backup incremental level 0
+        format '/backup/rman/full/Full_inc0-%T-%I-%d-%s.bkp'
+        database
+        tag 'INCR_LEVEL_0';
+
+    backup
+        format '/backup/rman/arch/archive-%T-%I-%d-%s.bkp'
+        archivelog all not backed up
+        tag 'BKP_ARCHIVES';
+
+    backup
+        format '/backup/rman/control/control-%T-%I-%d-%s.bkp'
+        current controlfile
+        tag 'BKP_CONTROLFILE';
+
+    backup
+        format '/backup/rman/control/spfile-%T-%I-%d-%s.bkp'
+        spfile
+        tag 'BKP_SPFILE';
+
+    release channel ch01;
+    release channel ch02;
+}
+EOF
+
+
+# =========================================================
+# Validação simplificada do status do backup
+# =========================================================
+
+if [[ $status_last_backup = 'FAILED' ]];
+then
+
+    # =====================================================
+    # Configuração de e-mail - cenário de falha
+    # =====================================================
+    MESSAGE_BODY="========== BACKUP FINALIZADO COM FALHAS =========="
+    EMAIL_SUBJECT="Rotina Backup Full"
+    FROM_EMAIL_ADDRESS="backup.monitoramento@empresaexemplo.com"
+    FRIENDLY_NAME="RMAN"
+    SMTP_SERVER="smtp.office365.com"
+    SMTP_PORT="587"
+    SMTP_USER="backup.monitoramento@empresaexemplo.com"
+    SMTP_PASS="SenhaFicticia@123"
+    TO_EMAIL_ADDRESS="dba1@empresaexemplo.com dba2@empresaexemplo.com"
+    FILEPATH="/backup/logs/PRODDB_Full_${DATE}.log"
+    NSS_DIR="/etc/pki/nssdb/"
+
+    # =====================================================
+    # Envio do e-mail com anexo do log
+    # =====================================================
+    echo "$MESSAGE_BODY" | mailx -v -s "$EMAIL_SUBJECT" \
+    -S smtp-use-starttls \
+    -S ssl-verify=ignore \
+    -S smtp=smtp://$SMTP_SERVER:$SMTP_PORT \
+    -S from="$FROM_EMAIL_ADDRESS($FRIENDLY_NAME)" \
+    -S smtp-auth-user=$SMTP_USER \
+    -S smtp-auth-password=$SMTP_PASS \
+    -S ssl-verify=ignore \
+    -S nss-config-dir=$NSS_DIR \
+    -a $FILEPATH \
+    $TO_EMAIL_ADDRESS
+
+else
+
+    # =====================================================
+    # Configuração de e-mail - cenário de sucesso
+    # =====================================================
+    MESSAGE_BODY="========== BACKUP FINALIZADO COM SUCESSO =========="
+    EMAIL_SUBJECT="Rotina Backup Full"
+    FROM_EMAIL_ADDRESS="backup.monitoramento@empresaexemplo.com"
+    FRIENDLY_NAME="RMAN"
+    SMTP_SERVER="smtp.office365.com"
+    SMTP_PORT="587"
+    SMTP_USER="backup.monitoramento@empresaexemplo.com"
+    SMTP_PASS="SenhaFicticia@123"
+    TO_EMAIL_ADDRESS="dba1@empresaexemplo.com dba2@empresaexemplo.com"
+    FILEPATH="/backup/logs/PRODDB_Full_${DATE}.log"
+    NSS_DIR="/etc/pki/nssdb/"
+
+    # =====================================================
+    # Envio do e-mail com anexo do log
+    # =====================================================
+    echo "$MESSAGE_BODY" | mailx -v -s "$EMAIL_SUBJECT" \
+    -S smtp-use-starttls \
+    -S ssl-verify=ignore \
+    -S smtp=smtp://$SMTP_SERVER:$SMTP_PORT \
+    -S from="$FROM_EMAIL_ADDRESS($FRIENDLY_NAME)" \
+    -S smtp-auth-user=$SMTP_USER \
+    -S smtp-auth-password=$SMTP_PASS \
+    -S ssl-verify=ignore \
+    -S nss-config-dir=$NSS_DIR \
+    -a $FILEPATH \
+    $TO_EMAIL_ADDRESS
+
+fi
